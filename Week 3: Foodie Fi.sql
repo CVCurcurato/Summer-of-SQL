@@ -1,5 +1,5 @@
---A. CUSTOMER JOURNEY
-
+--A. Customer Journey
+--Based off the 8 sample customers provided in the sample from the subscriptions table, write a brief description about each customer’s onboarding journey.
 --Briefly describe the first 8 customers’ onboarding journey.
 SELECT plan_name, price, customer_id, start_date,
     CASE WHEN customer_id = 1 THEN 'Customer switched to basic sub after trial'
