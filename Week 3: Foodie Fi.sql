@@ -15,3 +15,17 @@ FROM plans AS P
 INNER JOIN subscriptions AS S
 ON P.plan_id = S.plan_id
 WHERE customer_id <= 8
+
+--B. Data Analysis Questions
+
+-- 1. How many customers has Foodie-Fi ever had?
+SELECT COUNT(DISTINCT customer_id)
+FROM subscriptions
+-- Result, 1000 customers
+
+-- 2. What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value
+SELECT DATE_TRUNC('month',start_date), COUNT(DISTINCT customer_id)
+FROM subscriptions
+WHERE plan_id = 0
+GROUP BY 1
+ORDER BY 1
