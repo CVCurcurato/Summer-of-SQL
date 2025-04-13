@@ -32,8 +32,21 @@ GROUP BY 1
 ORDER BY 1
 
 -- 3. What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name
-SELECT start_date, P.plan_name, COUNT(*) AS count_of_events
+SELECT P.plan_name, COUNT(*) AS count_of_events
 FROM subscriptions AS S
 INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
 WHERE start_date > DATE('2020-12-31')
-GROUP BY 1,2
+GROUP BY 1
+
+-- 4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
+SELECT COUNT(DISTINCT customer_id) AS total_customers_count,
+    SUM(CASE WHEN plan_id = 4 THEN 1 ELSE 0 END) AS customers_churned_count,
+    ROUND(SUM(CASE WHEN plan_id = 4 THEN 1 ELSE 0 END)  * 100 / COUNT(DISTINCT customer_id),1) AS percentage_of_churn
+FROM subscriptions
+
+-- 4. Alternative Solution using subqueries
+SELECT COUNT(DISTINCT customer_id) AS total_customers_count,
+(SELECT COUNT(DISTINCT customer_id) FROM subscriptions WHERE plan_id = 4) AS customers_churned_count,
+ROUND((SELECT COUNT(DISTINCT customer_id) FROM subscriptions WHERE plan_id = 4) * 100 / total_customers_count,1) AS percentage_of_churn
+FROM subscriptions
