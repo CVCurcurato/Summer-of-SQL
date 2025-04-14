@@ -64,3 +64,20 @@ FROM numbered
 WHERE next_rownumber = 4
 AND plan_id = 0
 ORDER BY customer_id, start_date ASC
+    
+-- 6. What is the number and percentage of customer plans after their initial free trial?
+WITH numbered AS (
+SELECT P.plan_name, S.plan_id, customer_id, start_date, COUNT(DISTINCT customer_id) AS total_customers, 
+ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY start_date ASC) AS rownumber
+FROM subscriptions AS S
+INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
+GROUP BY 1,2,3,4
+ORDER BY customer_id, start_date ASC
+)
+
+SELECT plan_name, plan_id, COUNT(DISTINCT customer_id) AS customers_retained, ROUND(COUNT(DISTINCT customer_id) * 100 / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions),1) AS percentage
+FROM numbered
+WHERE rownumber = 2
+GROUP BY 1,2
+ORDER BY plan_id ASC
