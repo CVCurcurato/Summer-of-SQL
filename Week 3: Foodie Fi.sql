@@ -81,3 +81,19 @@ FROM numbered
 WHERE rownumber = 2
 GROUP BY 1,2
 ORDER BY plan_id ASC
+
+-- 7. What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+WITH numbered AS (
+SELECT plan_name, customer_id, start_date, COUNT(DISTINCT customer_id) AS total_customers,
+ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY start_date DESC) AS rownumber
+FROM subscriptions AS S
+INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
+WHERE start_date <= '2020-12-31'
+GROUP BY 1,2,3
+)
+
+SELECT plan_name, COUNT(DISTINCT customer_id) AS customer_count, ROUND(COUNT(DISTINCT customer_id) * 100 / (SELECT COUNT(DISTINCT customer_id) FROM subscriptions),1) AS percentage
+FROM numbered
+WHERE rownumber = 1
+GROUP BY 1
