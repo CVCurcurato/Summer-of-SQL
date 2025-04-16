@@ -97,3 +97,59 @@ SELECT plan_name, COUNT(DISTINCT customer_id) AS customer_count, ROUND(COUNT(DIS
 FROM numbered
 WHERE rownumber = 1
 GROUP BY 1
+
+-- 8. How many customers have upgraded to an annual plan in 2020?
+SELECT COUNT(DISTINCT customer_id) AS annual_plan_customers
+FROM subscriptions AS S
+INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
+WHERE start_date <= '2020-12-31'
+AND plan_name = 'pro annual'
+
+-- 9.How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+WITH daysCTE AS (
+SELECT plan_name, customer_id, start_date, COUNT(DISTINCT customer_id) AS annual_plan_customers,
+
+-- Days since previous plan
+    COALESCE(DATEDIFF('day', LAG(start_date) OVER(PARTITION BY customer_id ORDER BY start_date ASC), start_date),0) AS days_since_last_change
+
+FROM subscriptions AS S
+INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
+WHERE start_date <= '2020-12-31'
+GROUP BY 1,2,3
+ORDER BY customer_id, start_date ASC
+),
+
+cumulative AS (
+SELECT plan_name, customer_id, start_date, days_since_last_change,
+-- Running total for days since previous plan
+    SUM(days_since_last_change) OVER(PARTITION BY customer_id ORDER BY start_date ASC) AS running_total
+FROM daysCTE
+)
+
+SELECT AVG(running_total) AS avg_days_to_annual
+FROM cumulative
+WHERE plan_name = 'pro annual'
+
+-- 9. Alternative solution without running total
+WITH TRIAL AS (
+SELECT 
+customer_id,
+start_date as trial_start
+FROM subscriptions
+WHERE plan_id = 0
+AND start_date <= '2020-12-31'
+)
+, ANNUAL AS (
+SELECT 
+customer_id,
+start_date as annual_start
+FROM subscriptions
+WHERE plan_id = 3
+AND start_date <= '2020-12-31'
+)
+SELECT 
+ROUND(AVG(DATEDIFF('days',trial_start,annual_start)),0) as average_days_from_trial_to_annual
+FROM TRIAL as T
+INNER JOIN ANNUAL as A on T.customer_id = A.customer_id
