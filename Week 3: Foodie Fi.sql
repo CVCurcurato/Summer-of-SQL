@@ -153,3 +153,68 @@ SELECT
 ROUND(AVG(DATEDIFF('days',trial_start,annual_start)),0) as average_days_from_trial_to_annual
 FROM TRIAL as T
 INNER JOIN ANNUAL as A on T.customer_id = A.customer_id
+
+-- 10. Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+WITH daysCTE AS (
+SELECT plan_name, customer_id, start_date, COUNT(DISTINCT customer_id) AS annual_plan_customers,
+
+-- Days since previous plan
+    COALESCE(DATEDIFF('day', LAG(start_date) OVER(PARTITION BY customer_id ORDER BY start_date ASC), start_date),0) AS days_since_last_change
+
+FROM subscriptions AS S
+INNER JOIN plans AS P
+    ON S.plan_id = P.plan_id
+WHERE start_date <= '2020-12-31'
+GROUP BY 1,2,3
+ORDER BY customer_id, start_date ASC
+),
+
+cumulative AS (
+SELECT plan_name, customer_id, start_date, days_since_last_change,
+-- Running total for days since previous plan
+    SUM(days_since_last_change) OVER(PARTITION BY customer_id ORDER BY start_date ASC) AS running_total
+FROM daysCTE
+),
+
+binsCTE AS (
+SELECT *,
+    CASE WHEN running_total >= 0 AND running_total <= 30 THEN '0-30'
+         WHEN running_total >= 31 AND running_total <= 60 THEN '31-60'
+         WHEN running_total >= 61 AND running_total <= 90 THEN '61-90'
+         WHEN running_total >= 91 AND running_total <= 120 THEN '91-120'
+         WHEN running_total >= 121 AND running_total <= 150 THEN '121-150'
+         WHEN running_total >= 151 AND running_total <= 180 THEN '151-180'
+         WHEN running_total >= 181 AND running_total <= 210 THEN '181-210'
+         WHEN running_total >= 211 AND running_total <= 240 THEN '211-240'
+         WHEN running_total >= 241 AND running_total <= 270 THEN '241-270'
+         WHEN running_total >= 271 AND running_total <= 300 THEN '271-300'
+         WHEN running_total >= 301 AND running_total <= 330 THEN '301-330'
+         WHEN running_total >= 331 AND running_total <= 364 THEN '331-364'
+         ELSE '>365' END AS bins
+FROM cumulative
+WHERE plan_name = 'pro annual'
+)
+
+SELECT bins, COUNT(DISTINCT customer_id) AS customer_count
+FROM binsCTE
+GROUP BY 1
+    
+-- 11. How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
+WITH basic_monthly AS (
+SELECT customer_id, start_date as basic_start
+FROM subscriptions
+WHERE plan_id = 1
+AND start_date <= '2020-12-31'
+),
+pro_monthly AS (
+SELECT customer_id, start_date as pro_start
+FROM subscriptions
+WHERE plan_id = 2
+AND start_date <= '2020-12-31'
+)
+
+SELECT P.customer_id, basic_start, pro_start
+FROM basic_monthly AS B
+INNER JOIN pro_monthly AS P
+    ON P.customer_id = B.customer_id
+WHERE basic_start > pro_start
