@@ -132,3 +132,92 @@ INNER JOIN pd2023_wk07_account_holders as H ON H.account_holder_id = ACC.account
 WHERE cancelled_ = 'N'
 AND value > 1000
 AND account_type <> 'Platinum'
+
+-- Preppin' Data 2023 Week 08
+
+-- Create a 'file date' using the month found in the file name
+--     - The Null value should be replaced as 1
+-- Clean the Market Cap value to ensure it is the true value as 'Market Capitalisation'
+--     - Remove any rows with 'n/a'
+-- Categorise the Purchase Price into groupings
+    -- 0 to 24,999.99 as 'Low'
+    -- 25,000 to 49,999.99 as 'Medium'
+    -- 50,000 to 74,999.99 as 'High'
+    -- 75,000 to 100,000 as 'Very High'
+-- Categorise the Market Cap into groupings
+    -- Below $100M as 'Small'
+    -- Between $100M and below $1B as 'Medium'
+    -- Between $1B and below $100B as 'Large' 
+    -- $100B and above as 'Huge'
+-- Rank the highest 5 purchases per combination of: file date, Purchase Price Categorisation and Market Capitalisation Categorisation.
+-- Output only records with a rank of 1 to 5
+
+WITH stocks AS (
+SELECT *, TO_DATE('2023-01-01') AS file_date FROM pd2023_wk08_01
+UNION ALL
+SELECT *, TO_DATE('2023-02-01') AS file_date FROM pd2023_wk08_02
+UNION ALL
+SELECT *, TO_DATE('2023-03-01') AS file_date FROM pd2023_wk08_03
+UNION ALL
+SELECT *, TO_DATE('2023-04-01') AS file_date FROM pd2023_wk08_04
+UNION ALL
+SELECT *, TO_DATE('2023-05-01') AS file_date FROM pd2023_wk08_05
+UNION ALL
+SELECT *, TO_DATE('2023-06-01') AS file_date FROM pd2023_wk08_06
+UNION ALL
+SELECT *, TO_DATE('2023-07-01') AS file_date FROM pd2023_wk08_07
+UNION ALL
+SELECT *, TO_DATE('2023-08-01') AS file_date FROM pd2023_wk08_08
+UNION ALL
+SELECT *, TO_DATE('2023-09-01') AS file_date FROM pd2023_wk08_09
+UNION ALL
+SELECT *, TO_DATE('2023-10-01') AS file_date FROM pd2023_wk08_10
+UNION ALL
+SELECT *, TO_DATE('2023-11-01') AS file_date FROM pd2023_wk08_11
+UNION ALL
+SELECT *, TO_DATE('2023-12-01') AS file_date FROM pd2023_wk08_12
+
+),
+step1 AS (
+SELECT *, 
+REPLACE(purchase_price, '$', '') AS price,
+REPLACE(REPLACE(REPLACE(market_cap, '$', ''),'M',''),'B','') AS value,
+
+CASE WHEN RIGHT(market_cap, 1) = 'M' THEN value * 1000000 
+     WHEN RIGHT(market_cap, 1) = 'B' THEN value * 1000000000 
+     ELSE 0 END AS market_capitalization,
+     
+CASE WHEN price >= 0 AND price <= 24999.99 THEN 'Low'
+     WHEN price >= 25000 AND price <= 44999.99 THEN 'Medium'
+     WHEN price >= 50000 AND price <= 74999.99 THEN 'High' 
+     ELSE 'Very High' END AS purchase_price_group,
+
+
+CASE WHEN market_capitalization < 100000000  THEN 'Small'
+     WHEN market_capitalization >= 100000000 AND market_capitalization < 1000000000 THEN 'Medium'
+     WHEN market_capitalization >= 1000000000 AND market_capitalization < 100000000000 THEN 'Large'
+     ELSE 'Huge' END AS market_capitalization_group
+
+
+FROM stocks
+WHERE market_cap != 'n/a'
+),
+
+step2 AS (
+SELECT market_capitalization_group,
+purchase_price_group,
+file_date,
+ticker,
+sector,
+market,
+stock_name,
+market_capitalization,
+price AS purchase_price,
+RANK() OVER(PARTITION BY file_date, market_capitalization_group, purchase_price_group ORDER BY purchase_price DESC) AS rank
+FROM step1
+)
+
+SELECT *
+FROM step2
+WHERE rank <= 5
+AND file_date = '2023-10-01'
